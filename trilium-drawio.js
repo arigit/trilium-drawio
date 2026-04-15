@@ -1,10 +1,10 @@
 /*
 trilium-drawio
 https://github.com/SiriusXT/trilium-drawio
-version:0.5
+version:0.6
 */
 
-var defaultTheme = "0" //0:light;1:dark;,2:Follow software theme styles
+var defaultTheme = "2" //0:light;1:dark;,2:Follow software theme styles
 
 var currentNoteId;
 var themeStyle = getComputedStyle(document.documentElement).getPropertyValue('--theme-style');
@@ -14,7 +14,22 @@ var editor = 'https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json&confi
 var id_svg_dict = {}
 var noteId = ''
 
+
+
 function edit(noteId) {
+
+  const $wrapper = $('div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper');
+
+  // Guard: if editor already open in this note, don't add another one
+  if ($wrapper.find('div.iframe-drawio').length > 0) {
+    return;
+  }
+
+  // (optional extra hardening: also kill any stray fullscreen editor)
+  if ($('body > div.iframe-drawio').length > 0) {
+    $('body > div.iframe-drawio').remove();
+  }
+
 	$('div.component.note-split:not(.hidden-ext) div.component.scrolling-container div.note-detail.component div.note-detail-image-wrapper').off("click");
 
 	var svg = id_svg_dict[noteId];
@@ -152,20 +167,26 @@ function edit(noteId) {
 };
 
 
+
 function addClick(noteId, autoEdit) {
-	var $img = $('div.component.note-split:not(.hidden-ext) div.component.scrolling-container div.note-detail.component img.note-detail-image-view');
-	if (!$img.hasClass('dark') && !$img.hasClass('light')) {
-		$('div.component.note-split:not(.hidden-ext) div.component.scrolling-container div.note-detail.component div.note-detail-image-wrapper').off("click");
-		$('div.component.note-split:not(.hidden-ext) div.component.scrolling-container div.note-detail.component div.note-detail-image-wrapper').click(noteId, function () {
-			edit(noteId);
-		});
-	}
-	if (themeStyle.indexOf('dark') >= 0) { $img.addClass('dark'); }
-	else if (themeStyle.indexOf('light') >= 0) { $img.addClass('light'); }
-	if (autoEdit) {
-		edit(noteId);
-	}
+  const $wrapper = $('div.component.note-split:not(.hidden-ext) div.component.scrolling-container div.note-detail.component div.note-detail-image-wrapper');
+  const $img = $('div.component.note-split:not(.hidden-ext) div.component.scrolling-container div.note-detail.component img.note-detail-image-view');
+
+  // Always (re)bind
+  $wrapper.off("click.drawio");
+  $wrapper.on("click.drawio", function () { edit(noteId); });
+
+  if (themeStyle.indexOf('dark') >= 0) {
+    $img.addClass('dark');
+  } else if (themeStyle.indexOf('light') >= 0) {
+    $img.addClass('light');
+  }
+
+  if (autoEdit) {
+    edit(noteId);
+  }
 }
+
 
 class DrawiIo extends api.NoteContextAwareWidget {
 	get position() {
@@ -179,8 +200,13 @@ class DrawiIo extends api.NoteContextAwareWidget {
 		this.$widget = $(`<style type="text/css">
         div.iframe-drawio{
                 width: 100%;
-    height: 100%;
-}
+                height: 100%;
+        }
+        
+        div.component.note-detail.component img.note-detail-image-view {
+            filter: var(--drawio-preview-filter, none);
+        }
+
         img.note-detail-image-view{        
             transform: none !important;
             width: max-content;
@@ -188,15 +214,19 @@ class DrawiIo extends api.NoteContextAwareWidget {
     height: max-content;
     max-height: 100%;
         } 
-         img.note-detail-image-view.dark {
+        
+img.note-detail-image-view.dark {
   filter: invert(88%) hue-rotate(180deg);
 }
-iframe{
-  z-index: 100;
-}
-div.iframe-drawio.dark{
+
+        iframe{
+            z-index: 100;
+        }
+
+div.iframe-drawio.dark {
   filter: invert(88%) hue-rotate(180deg);
 }
+
   .iframe-drawio      iframe {
 			border:0;
 			right:0;
@@ -244,7 +274,7 @@ div.iframe-drawio.dark{
 		}
 
 		$(document).ready(function () {
-			var ischangeTab = false;
+            var ischangeTab = false;
 			if ($last_image_wrapper != undefined && $last_image_wrapper.length > 0) {
 				window.last_image_wrapper = $last_image_wrapper;
 				$.each($last_image_wrapper.parents(), function (index, value) {
